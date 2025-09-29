@@ -2,7 +2,7 @@ name: PR Label CI
 
 on:
   pull_request:
-    types: [labeled]
+    types: [labeled, synchronize]
 
 jobs:
 #   parse-label:
