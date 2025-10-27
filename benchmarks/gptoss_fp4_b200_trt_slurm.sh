@@ -75,8 +75,6 @@ set -x
 
 MAX_NUM_TOKENS=20000
 
-rm -rf ~/.cache/torch_extensions/
-
 # Launch TRT-LLM server
 mpirun -n 1 --oversubscribe --allow-run-as-root \
     trtllm-serve $MODEL --port=$PORT \
