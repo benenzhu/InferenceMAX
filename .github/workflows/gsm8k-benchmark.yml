@@ -19,7 +19,7 @@ on:
                 type: string
                 default: "vllm/vllm-openai:latest"
             framework:
-                description: "Framework to use (vllm, sglang, trt)"
+                description: "Framework to use (vllm, sglang)"
                 required: true
                 type: string
                 default: "vllm"

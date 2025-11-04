@@ -52,8 +52,9 @@ echo "Running GSM8k evaluation..."
 TEMP_OUTPUT_DIR=$(mktemp -d)
 
 # Build lm-eval command
+# Note: SGLang provides an OpenAI-compatible API, we use vllm model type with custom base_url
 LMEVAL_CMD="lm_eval --model vllm \
---model_args pretrained=$MODEL,tensor_parallel_size=$TP,dtype=auto,gpu_memory_utilization=0.9,data_parallel_size=1,base_url=http://localhost:$PORT/v1 \
+--model_args pretrained=$MODEL,tensor_parallel_size=$TP,dtype=auto,data_parallel_size=1,base_url=http://localhost:$PORT/v1 \
 --tasks gsm8k \
 --num_fewshot $NUM_FEWSHOT \
 --batch_size auto \
