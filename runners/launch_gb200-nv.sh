@@ -298,9 +298,9 @@ else # search for "FRAMEWORK_DIFF_IF_STATEMENT #3" for this if-statement
 import os, sys
 isl, osl, nexp, total_retries = [int(x) for x in sys.argv[1:]]
 for chosen_slurm_id in [
-    max([int(x) for x in os.listdir("logs/") if int(x) < end_index]) 
+    list(filter(lambda input_log_name: int(input_log_name.split("_")[0]) < end_index, sorted(os.listdir("logs/"), key=lambda log_name: int(log_name.split("_")[0]))))[-1]
     for end_index in 
-    [min([int(x) for x in os.listdir("logs/")]) + (total_retries+1) * (exp_idx+1) for exp_idx in range(nexp)]
+    [min([int(log_name.split("_")[0]) for log_name in os.listdir("logs/")]) + (total_retries+1) * (exp_idx+1) for exp_idx in range(nexp)]
 ]:
     print(f"logs/{chosen_slurm_id}/vllm_isl_{isl}_osl_{osl}")
 PY
