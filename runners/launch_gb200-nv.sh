@@ -165,6 +165,7 @@ if [[ $FRAMEWORK == "dynamo-trtllm" ]]; then
 
 else # if statement at the top - search for "FRAMEWORK_DIFF_IF_STATEMENT #2"
     # Set up Dynamo repository path
+    set -x
     DYNAMO_PATH="/mnt/lustre01/users/sa-shared/benchmarks/dynamo"
     if [ "$ISL" = "1024" ] && [ "$OSL" = "1024" ]; then
         SGL_SLURM_JOBS_PATH="$DYNAMO_PATH/examples/backends/sglang/slurm_jobs"
@@ -212,6 +213,8 @@ else # if statement at the top - search for "FRAMEWORK_DIFF_IF_STATEMENT #2"
         echo "Unsupported ISL/OSL combination: $ISL/$OSL"
         exit 1
     fi
+
+    set +x
 fi
 
 # Wait for all jobs to complete
