@@ -195,9 +195,6 @@ else # if statement at the top - search for "FRAMEWORK_DIFF_IF_STATEMENT #2"
     export CONFIG_DIR=$CONFIG_DIR
     export CONTAINER_IMAGE=$IMAGE
 
-    # This number is set in the `submit_disagg.sh` script. 
-    RETRIES=1
-
     # Launch jobs based on ISL/OSL
     if [ "$ISL" = "1024" ] && [ "$OSL" = "1024" ]; then
         NUMBER_OF_EXPERIMENTS=2
@@ -296,15 +293,11 @@ else # search for "FRAMEWORK_DIFF_IF_STATEMENT #3" for this if-statement
     # Find the latest log directory that contains the data
     cat > collect_latest_results.py <<'PY'
 import os, sys
-isl, osl, nexp, total_retries = [int(x) for x in sys.argv[1:]]
-for chosen_slurm_id in [
-    list(filter(lambda input_log_name: int(input_log_name.split("_")[0]) < end_index, sorted(os.listdir("logs/"), key=lambda log_name: int(log_name.split("_")[0]))))[-1]
-    for end_index in 
-    [min([int(log_name.split("_")[0]) for log_name in os.listdir("logs/")]) + (total_retries+1) * (exp_idx+1) for exp_idx in range(nexp)]
-]:
-    print(f"logs/{chosen_slurm_id}/vllm_isl_{isl}_osl_{osl}")
+isl, osl, nexp = [int(x) for x in sys.argv[1:]]
+for path in sorted([f"logs/{name}/vllm_isl_{isl}_osl_{osl}" for name in os.listdir("logs/") if os.path.isdir(f"logs/{name}/vllm_isl_{isl}_osl_{osl}")], key=os.path.getmtime, reverse=True)[:nexp]:
+    print(path)
 PY
-    LOGS_DIR=$(python3 collect_latest_results.py $ISL $OSL $NUMBER_OF_EXPERIMENTS $RETRIES)
+    LOGS_DIR=$(python3 collect_latest_results.py $ISL $OSL $NUMBER_OF_EXPERIMENTS)
     if [ -z "$LOGS_DIR" ]; then
         echo "No logs directory found for ISL=${ISL}, OSL=${OSL}"
         exit 1
