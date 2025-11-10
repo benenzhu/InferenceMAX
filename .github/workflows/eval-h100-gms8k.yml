@@ -44,16 +44,16 @@ jobs:
     uses: ./.github/workflows/eval-tmpl.yml
     secrets: inherit
     with:
-      runner: h100-cr_1
-      image: ${{ inputs.image }}
-      model: ${{ inputs.model }}
+      runner: h100-cr_0
+      image: ${{ inputs.image || 'vllm/vllm-openai:v0.11.0' }}
+      model: ${{ inputs.model || 'openai/gpt-oss-120b' }}
       framework: vllm
       precision: fp4
-      exp-name: gsm8k_poc
-      tp: ${{ inputs.tp }}
+      exp-name: gptoss_gsm8k_poc
+      tp: ${{ inputs.tp || '4' }}
       ep: '1'
       dp-attn: false
-      port: ${{ inputs.port }}
+      port: ${{ inputs.port || '8888' }}
       eval-task: gsm8k
-      num-fewshot: ${{ inputs.num_fewshot }}
-      limit: ${{ inputs.limit }}
+      num-fewshot: ${{ inputs.num_fewshot || '5' }}
+      limit: ${{ inputs.limit || '200' }}
