@@ -52,6 +52,7 @@ if [[ "$RUN_MODE" == "eval" ]]; then
   set -x
   docker run --rm --network=host --name="$client_name" \
     -v "$GITHUB_WORKSPACE:/workspace/" -w /workspace/ \
+    -e DOCKER_USER_ID="$(id -u)" -e DOCKER_GROUP_ID="$(id -g)" \
     -e OPENAI_API_KEY=EMPTY \
     -e OPENAI_SERVER_BASE="$OPENAI_SERVER_BASE" \
     -e OPENAI_CHAT_BASE="$OPENAI_CHAT_BASE" \
@@ -82,7 +83,9 @@ if [[ "$RUN_MODE" == "eval" ]]; then
            --batch_size 1 \
            --output_path /workspace/${EVAL_RESULT_DIR:-eval_out} \
            --model_args "model=$OPENAI_MODEL_NAME_COMPUTED,base_url=$OPENAI_CHAT_BASE,api_key=$OPENAI_API_KEY,eos_string=</s>,max_retries=3" \
-           --gen_kwargs "max_tokens=16384,temperature=0,top_p=1"'
+           --gen_kwargs "max_tokens=16384,temperature=0,top_p=1"; \
+         # Ensure workspace outputs are owned by the runner user on host
+         chown -R "$DOCKER_USER_ID:$DOCKER_GROUP_ID" "/workspace/${EVAL_RESULT_DIR:-eval_out}" || true'
 
   set +x
 
@@ -163,6 +166,7 @@ else
     docker run --rm --network=host --name=$client_name \
     -v $GITHUB_WORKSPACE:/workspace/ -w /workspace/ \
     -e HF_TOKEN -e PYTHONPYCACHEPREFIX=/tmp/pycache/ \
+    -e DOCKER_USER_ID="$(id -u)" -e DOCKER_GROUP_ID="$(id -g)" \
     --entrypoint=/bin/bash \
     $IMAGE \
     -lc "pip install -q datasets pandas && \
@@ -176,7 +180,9 @@ else
     --request-rate=inf --ignore-eos \
     --save-result --percentile-metrics='ttft,tpot,itl,e2el' \
     --result-dir=/workspace/ \
-    --result-filename=$RESULT_FILENAME.json"
+    --result-filename=$RESULT_FILENAME.json && \
+    # Ensure workspace outputs are owned by the runner user on host
+    chown -R \"$DOCKER_USER_ID:$DOCKER_GROUP_ID\" /workspace || true"
 fi
 
 docker stop $server_name
