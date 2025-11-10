@@ -18,6 +18,23 @@ if docker ps -a --format '{{.Names}}' | grep -Fxq "$client_name"; then
   docker rm -f "$client_name" || true
 fi
 
+if [ "${PRE_CLEAN_WORKSPACE:-1}" = "1" ] && [ -n "${GITHUB_WORKSPACE:-}" ] && [ -d "$GITHUB_WORKSPACE" ]; then
+  echo "Pre-cleaning workspace artifacts under $GITHUB_WORKSPACE"
+  # Allow override of paths; default cleans eval outputs
+  CLEAN_PATHS="${CLEAN_PATHS:-/workspace/${EVAL_RESULT_DIR:-eval_out}}"
+  # Use the same $IMAGE to avoid extra pulls; requires bash inside image
+  docker run --rm --network=host --name="${client_name}-preclean" \
+    -v "$GITHUB_WORKSPACE:/workspace" \
+    --entrypoint=/bin/bash \
+    "$IMAGE" \
+    -lc 'set -euo pipefail; \
+         shopt -s nullglob || true; \
+         for p in '"$CLEAN_PATHS"'; do \
+           echo "Cleaning $p if exists"; \
+           if [ -e "$p" ]; then chmod -R u+w "$p" 2>/dev/null || true; rm -rf "$p" || true; fi; \
+         done' || true
+fi
+
 docker run --rm -d --network=host --name=$server_name \
 --runtime=nvidia --gpus=all --ipc=host --privileged --shm-size=16g --ulimit memlock=-1 --ulimit stack=67108864 \
 -v $HF_HUB_CACHE_MOUNT:$HF_HUB_CACHE \
