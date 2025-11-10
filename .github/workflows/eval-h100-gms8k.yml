@@ -44,7 +44,7 @@ jobs:
     uses: ./.github/workflows/eval-tmpl.yml
     secrets: inherit
     with:
-      runner: h100-cr
+      runner: h100-cr_1
       image: ${{ inputs.image }}
       model: ${{ inputs.model }}
       framework: vllm
