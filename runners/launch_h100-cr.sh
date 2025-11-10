@@ -40,40 +40,64 @@ if [[ "$RUN_MODE" == "eval" ]]; then
   LM_EVAL_IMAGE="${LM_EVAL_IMAGE:-$IMAGE}"
 
   set -x
-  docker run --rm --network=host --name="$client_name" \
-    -v "$GITHUB_WORKSPACE:/workspace/" -w /workspace/ \
-    -e OPENAI_API_KEY=EMPTY \
-    -e OPENAI_SERVER_BASE="$OPENAI_SERVER_BASE" \
-    -e OPENAI_CHAT_BASE="$OPENAI_CHAT_BASE" \
-    -e OPENAI_MODEL_NAME_COMPUTED="${OPENAI_MODEL_NAME:-}" \
-    --entrypoint=/bin/bash \
-    "$LM_EVAL_IMAGE" \
-    -lc 'python3 -m pip install -q --upgrade pip || true; \
-         python3 -m pip install -q --no-cache-dir "lm-eval[api]"; \
-         # Health check (GET); avoids 405s on POST-only routes
-         curl -fsS "$OPENAI_SERVER_BASE/health" >/dev/null || { echo "Health check failed"; exit 1; }; \
-         # Resolve served model id if not provided
-         if [ -z "$OPENAI_MODEL_NAME_COMPUTED" ]; then \
-           OPENAI_MODEL_NAME_COMPUTED=$(curl -fsS "$OPENAI_SERVER_BASE/v1/models" \
-             | python3 - <<PY
-import sys, json
-d=json.load(sys.stdin)
-print((d.get("data") or [{}])[0].get("id",""))
+  docker run --rm --network=host --name=$client_name \
+  -v $GITHUB_WORKSPACE:/workspace/ -w /workspace/ \
+  -e OPENAI_API_KEY=EMPTY \
+  -e OPENAI_SERVER_BASE="http://localhost:${PORT:-8888}" \
+  -e OPENAI_CHAT_BASE="http://localhost:${PORT:-8888}/v1/chat/completions" \
+  -e OPENAI_COMP_BASE="http://localhost:${PORT:-8888}/v1/completions" \
+  -e OPENAI_MODEL_NAME="${OPENAI_MODEL_NAME:-}" \
+  --entrypoint=/bin/bash \
+  ${LM_EVAL_IMAGE:-$IMAGE} \
+  -lc '
+set -euo pipefail
+python3 -m pip install -q --upgrade pip || true
+python3 -m pip install -q --no-cache-dir "lm-eval[api]"
+
+# 1) Health check (GET). This avoids 405 on POST-only routes.
+curl -fsS "$OPENAI_SERVER_BASE/health" >/dev/null || { echo "Health check failed"; exit 1; }
+
+# 2) Resolve served model id robustly (no pipe with -f)
+if [ -z "${OPENAI_MODEL_NAME:-}" ]; then
+  httpcode=$(curl -sS -w "%{http_code}" -o /tmp/models.json "$OPENAI_SERVER_BASE/v1/models" || true)
+  if [ "$httpcode" = "200" ] && [ -s /tmp/models.json ]; then
+    OPENAI_MODEL_NAME="$(python3 - <<PY
+import json,sys
+d=json.load(open("/tmp/models.json"))
+print(d.get("data",[{}])[0].get("id",""))
 PY
-); fi; \
-         echo "Using model: $OPENAI_MODEL_NAME_COMPUTED"; \
-         # One POST sanity to ensure chat endpoint + model both work
-         curl -fsS -X POST "$OPENAI_CHAT_BASE" -H "Content-Type: application/json" \
-           -d "{\"model\":\"$OPENAI_MODEL_NAME_COMPUTED\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":1,\"tool_choice\":\"none\",\"response_format\":{\"type\":\"text\"}}" >/dev/null || { echo "Chat POST failed"; exit 1; }; \
-         # Run lm-eval with strong API-side guards
-         python3 -m lm_eval --model local-chat-completions \
-           --tasks ${EVAL_TASK:-gsm8k} \
-           --apply_chat_template \
-           --num_fewshot ${NUM_FEWSHOT:-5} \
-           --limit ${LIMIT:-200} \
-           --batch_size 1 \
-           --output_path /workspace/${EVAL_RESULT_DIR:-eval_out} \
-           --model_args "model=$OPENAI_MODEL_NAME_COMPUTED,base_url=$OPENAI_CHAT_BASE,api_key=$OPENAI_API_KEY,temperature=0.0,eos_string=</s>,max_retries=12,timeout=120,num_concurrent=1,stop=Question:,stop=</s>,stop=<|im_end|>,extra_body={\"tool_choice\":\"none\",\"response_format\":{\"type\":\"text\"}}"' 
+)"
+  fi
+fi
+
+# 3) Fallback if discovery failed
+OPENAI_MODEL_NAME="${OPENAI_MODEL_NAME:-openai/gpt-oss-120b}"
+echo "Using model: $OPENAI_MODEL_NAME"
+
+# 4) Sanity POST to chat endpoint (disable tools/JSON modes to dodge edge cases)
+curl -fsS -X POST "$OPENAI_CHAT_BASE" -H "Content-Type: application/json" \
+  -d "{\"model\":\"$OPENAI_MODEL_NAME\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":1,\"tool_choice\":\"none\",\"response_format\":{\"type\":\"text\"}}" >/dev/null \
+  || { echo "Chat POST sanity failed; trying /v1/completions"; USE_CHAT=0; }
+
+# 5) Choose endpoint + harness model shim
+if [ "${USE_CHAT:-1}" -eq 1 ]; then
+  HARNESS_MODEL="local-chat-completions"
+  BASE_URL="$OPENAI_CHAT_BASE"
+else
+  HARNESS_MODEL="local-completions"
+  BASE_URL="$OPENAI_COMP_BASE"
+fi
+
+# 6) Run lm-eval (serial requests to avoid reorder/assert issues)
+python3 -m lm_eval --model "$HARNESS_MODEL" \
+  --tasks ${EVAL_TASK:-gsm8k} \
+  --apply_chat_template \
+  --num_fewshot ${NUM_FEWSHOT:-5} \
+  --limit ${LIMIT:-200} \
+  --batch_size 1 \
+  --output_path /workspace/${EVAL_RESULT_DIR:-eval_out} \
+  --model_args "model=$OPENAI_MODEL_NAME,base_url=$BASE_URL,api_key=$OPENAI_API_KEY,temperature=0.0,eos_string=</s>,num_concurrent=1,timeout=120,stop=Question:,stop=</s>,stop=<|im_end|>,extra_body={\"tool_choice\":\"none\",\"response_format\":{\"type\":\"text\"}}"
+'
 else
     # Benchmark mode: original throughput client
     git clone https://github.com/kimbochen/bench_serving.git
