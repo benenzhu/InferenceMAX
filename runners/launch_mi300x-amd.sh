@@ -11,7 +11,7 @@ client_name="bmk-client"
 
 docker network create $network_name
 
-set -x
+set -ex
 docker run --rm -d --ipc=host --shm-size=16g --network=$network_name --name=$server_name \
 --privileged --cap-add=CAP_SYS_ADMIN --device=/dev/kfd --device=/dev/dri --device=/dev/mem \
 --cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
@@ -22,6 +22,7 @@ docker run --rm -d --ipc=host --shm-size=16g --network=$network_name --name=$ser
 --entrypoint=/bin/bash \
 $IMAGE \
 benchmarks/"${EXP_NAME%%_*}_${PRECISION}_mi300x_docker.sh"
+set +e
 
 set +x
 while IFS= read -r line; do
