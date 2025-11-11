@@ -97,22 +97,37 @@ if [[ "$RUN_MODE" == "eval" ]]; then
 
   set -x
   PATCH_DIR=$(mktemp -d)
-cat > "$PATCH_DIR/sitecustomize.py" <<'PY'
+  cat > "$PATCH_DIR/sitecustomize.py" <<'PY'
 import lm_eval.filters.extraction as ex
-_orig = ex.ExtractFilter.apply
+
+_orig_apply = ex.ExtractFilter.apply
+
 def _safe_apply(self, resps, docs):
-    resps = [r if isinstance(r, str) else "" for r in resps]
-    return _orig(self, resps, docs)
+    norm = []
+    for r in resps:
+        if isinstance(r, str):
+            norm.append(r)
+        elif r is None:
+            norm.append("")
+        elif isinstance(r, (list, tuple)):
+            # If a list of candidates, take first string; else empty
+            s = next((x for x in r if isinstance(x, str)), "")
+            norm.append(s)
+        else:
+            norm.append("")
+    return _orig_apply(self, norm, docs)
+
 ex.ExtractFilter.apply = _safe_apply
 PY
-  PYTHONPATH="$PATCH_DIR:$PYTHONPATH" \
+
+  PYTHONPATH="$PATCH_DIR${PYTHONPATH:+:$PYTHONPATH}" \
   python3 -m lm_eval --model local-chat-completions --apply_chat_template \
     --tasks ${EVAL_TASK:-gsm8k} \
     --num_fewshot ${NUM_FEWSHOT:-5} \
     --batch_size 2 \
     --output_path "/workspace/${EVAL_RESULT_DIR}" \
-    --model_args "model=$MODEL,base_url=$OPENAI_CHAT_BASE,api_key=$OPENAI_API_KEY,eos_string=</s>,max_retries=3,num_concurrent=32" \
-    --gen_kwargs "max_tokens=32768,temperature=0,top_p=1"
+    --model_args "model=$MODEL,base_url=$OPENAI_CHAT_BASE,api_key=$OPENAI_API_KEY,eos_string=</s>,max_retries=3,num_concurrent=32,tokenized_requests=False" \
+    --gen_kwargs "max_tokens=8192,temperature=0,top_p=1"
   set +x
 
   # Append a Markdown table to the GitHub Actions job summary using helper in bench_serving
