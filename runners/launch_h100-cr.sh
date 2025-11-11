@@ -4,11 +4,20 @@ HF_HUB_CACHE_MOUNT="/home/ubuntu/hf_hub_cache/"
 PORT=${PORT:-8888}
 
 set -x
+SUMMARY_MOUNT=""
+if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+  SUM_DIR="$(dirname "$GITHUB_STEP_SUMMARY")"
+  if [ -d "$SUM_DIR" ]; then
+    SUMMARY_MOUNT="-v $SUM_DIR:$SUM_DIR"
+  fi
+fi
+
 docker run --rm --network=host \
   --runtime=nvidia --gpus=all --ipc=host --privileged --shm-size=16g \
   --ulimit memlock=-1 --ulimit stack=67108864 \
   -v "$HF_HUB_CACHE_MOUNT:$HF_HUB_CACHE" \
   -v "$GITHUB_WORKSPACE:/workspace/" -w /workspace/ \
+  $SUMMARY_MOUNT \
   -e HF_TOKEN -e HF_HUB_CACHE -e MODEL -e TP -e CONC -e MAX_MODEL_LEN -e ISL -e OSL \
   -e RANDOM_RANGE_RATIO -e RESULT_FILENAME -e PORT="$PORT" -e GITHUB_STEP_SUMMARY \
   -e RUN_MODE -e EVAL_TASK -e NUM_FEWSHOT -e LIMIT -e EVAL_RESULT_DIR \
