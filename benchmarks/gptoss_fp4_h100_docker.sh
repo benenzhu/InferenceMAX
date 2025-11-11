@@ -67,6 +67,7 @@ if [[ "$READY" -ne 1 ]]; then
   tail -n 200 "$SERVER_LOG" >&2 || true
   exit 1
 fi
+echo "vLLM server up"
 
 RUN_MODE=${RUN_MODE:-benchmark}
 
@@ -192,6 +193,9 @@ PY
 
   echo "Evaluation completed. Results in /workspace/${EVAL_RESULT_DIR}"
 else
+  echo "Running benchmark mode"
+fi
+if TRUE; then
   # Default values for optional vars used by the benchmark
   ISL=${ISL:-256}
   OSL=${OSL:-256}
