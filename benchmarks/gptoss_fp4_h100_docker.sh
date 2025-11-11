@@ -88,7 +88,7 @@ if [[ "$RUN_MODE" == "eval" ]]; then
   echo "Using model: $MODEL"
 
   # Clean up previous eval results if any
-  rm -f /workspace/"${EVAL_RESULT_DIR}"*.json
+  rm -f /workspace/"${EVAL_RESULT_DIR}"/*
 
   set -x
   python3 -m lm_eval --model local-completions \
@@ -97,8 +97,7 @@ if [[ "$RUN_MODE" == "eval" ]]; then
     --batch_size 4 \
     --output_path "/workspace/${EVAL_RESULT_DIR}" \
     --model_args "model=$MODEL,base_url=$OPENAI_COMP_BASE,api_key=$OPENAI_API_KEY,eos_string=</s>,max_retries=3,num_concurrent=4" \
-    --gen_kwargs "max_tokens=8192,temperature=0,top_p=1" \
-    --verbosity DEBUG --log_samples
+    --gen_kwargs "max_tokens=8192,temperature=0,top_p=1"
   set +x
 
   # Append a Markdown table to the GitHub Actions job summary
@@ -175,33 +174,9 @@ PY
   fi
 
   echo "Evaluation completed. Results in /workspace/${EVAL_RESULT_DIR}"
-  # Default values for optional vars used by the benchmark
-  ISL=${ISL:-256}
-  OSL=${OSL:-256}
-  RANDOM_RANGE_RATIO=${RANDOM_RANGE_RATIO:-1.0}
-  RESULT_FILENAME=${RESULT_FILENAME:-results}
 
-  # Install deps and run benchmark in the same container
-  python3 -m pip install -q --upgrade pip || true
-  python3 -m pip install -q --no-cache-dir datasets pandas || true
-  if [[ ! -d bench_serving ]]; then
-    git clone https://github.com/kimbochen/bench_serving.git
-  fi
-
-  set -x
-  python3 bench_serving/benchmark_serving.py \
-    --model="$MODEL" \
-    --backend=vllm \
-    --base-url="http://0.0.0.0:$PORT" \
-    --dataset-name=random \
-    --random-input-len="$ISL" --random-output-len="$OSL" --random-range-ratio="$RANDOM_RANGE_RATIO" \
-    --num-prompts=$(( CONC * 10 )) --max-concurrency="$CONC" \
-    --request-rate=inf --ignore-eos \
-    --save-result --percentile-metrics='ttft,tpot,itl,e2el' \
-    --result-dir=/workspace/ \
-    --result-filename="$RESULT_FILENAME.json"
-  set +x
 else
+
   # Default values for optional vars used by the benchmark
   ISL=${ISL:-256}
   OSL=${OSL:-256}
