@@ -96,31 +96,106 @@ if [[ "$RUN_MODE" == "eval" ]]; then
   mkdir -p "/workspace/${EVAL_RESULT_DIR}"
 
   set -x
-  PATCH_DIR=$(mktemp -d)
-  cat > "$PATCH_DIR/sitecustomize.py" <<'PY'
-import lm_eval.filters.extraction as ex
+  # BEFORE calling `lm_eval` in your script:
+  PATCH_DIR="$(mktemp -d)"
+cat > "$PATCH_DIR/sitecustomize.py" <<'PY'
+import re, sys, unicodedata
+from lm_eval.filters import extraction as ex
 
-_orig_apply = ex.ExtractFilter.apply
+def _s(x):  # coerce to str
+    return x if isinstance(x, str) else ""
 
-def _safe_apply(self, resps, docs):
-    norm = []
-    for r in resps:
-        if isinstance(r, str):
-            norm.append(r)
-        elif r is None:
-            norm.append("")
-        elif isinstance(r, (list, tuple)):
-            # If a list of candidates, take first string; else empty
-            s = next((x for x in r if isinstance(x, str)), "")
-            norm.append(s)
-        else:
-            norm.append("")
-    return _orig_apply(self, norm, docs)
+# --- Patch RegexFilter.apply (used by many datasets) ---
+_orig_regex_apply = ex.RegexFilter.apply
+def _safe_regex_apply(self, resps, docs):
+    out = []
+    for inst in resps:  # inst is a list of candidate responses for one doc
+        filtered = []
+        for resp in inst:
+            txt = _s(resp)
+            m = self.regex.findall(txt)
+            if m:
+                m = m[self.group_select]
+                if isinstance(m, tuple):
+                    m = [t for t in m if t]
+                    m = m[0] if m else self.fallback
+                m = m.strip()
+            else:
+                m = self.fallback
+            filtered.append(m)
+        out.append(filtered)
+    return out
+ex.RegexFilter.apply = _safe_regex_apply
 
-ex.ExtractFilter.apply = _safe_apply
+# --- Patch MultiChoiceRegexFilter.apply (used by GSM8K flexible-extract) ---
+_orig_mc_apply = ex.MultiChoiceRegexFilter.apply
+def _safe_mc_apply(self, resps, docs):
+    def find_match(regex, resp, convert_dict={}):
+        txt = _s(resp)
+        match = regex.findall(txt)
+        if match:
+            match = match[self.group_select]
+            if isinstance(match, tuple):
+                match = [m for m in match if m]
+                if match:
+                    match = match[0]
+        if match:
+            match = match.strip()
+            if match in convert_dict:
+                return convert_dict[match]
+            return match
+        return None
+
+    punct_tbl = dict.fromkeys(
+        i for i in range(sys.maxunicode)
+        if unicodedata.category(chr(i)).startswith("P")
+    )
+
+    def filter_ignores(st):
+        st = _s(st)
+        if self.regexes_to_ignore is not None:
+            for s in self.regexes_to_ignore:
+                st = re.sub(s, "", st)
+        if self.ignore_case:
+            st = st.lower()
+        if self.ignore_punctuation:
+            st = st.translate(punct_tbl)
+        return st
+
+    out = []
+    for r, doc in zip(resps, docs):
+        # Build fallback regexes from choices (A, B, C, ...) as in upstream
+        fallback_regexes, choice_to_alpha = [], {}
+        next_alpha = "A"
+        without_paren, without_paren_to_target = [], {}
+        for c in doc.get("choices", []):
+            m = filter_ignores(c.strip())
+            fallback_regexes.append(re.escape(m))
+            choice_to_alpha[m] = f"({next_alpha})"
+            without_paren.append(next_alpha)
+            without_paren_to_target[next_alpha] = f"({next_alpha})"
+            next_alpha = chr(ord(next_alpha) + 1)
+
+        fallback_regex = re.compile("|".join(fallback_regexes)) if fallback_regexes else None
+        without_paren_regex = re.compile(rf":[\s]*({'|'.join(without_paren)})") if without_paren else None
+
+        filtered = []
+        for resp in r:
+            m = find_match(self.regex, resp)
+            if not m and fallback_regex:
+                m = find_match(fallback_regex, filter_ignores(resp), choice_to_alpha)
+            if not m and without_paren_regex:
+                m = find_match(without_paren_regex, resp, without_paren_to_target)
+            if not m:
+                m = self.fallback
+            filtered.append(m)
+        out.append(filtered)
+    return out
+
+ex.MultiChoiceRegexFilter.apply = _safe_mc_apply
 PY
 
-  PYTHONPATH="$PATCH_DIR${PYTHONPATH:+:$PYTHONPATH}" \
+  export PYTHONPATH="${PATCH_DIR}:${PYTHONPATH:-}"
   python3 -m lm_eval --model local-chat-completions --apply_chat_template \
     --tasks ${EVAL_TASK:-gsm8k} \
     --num_fewshot ${NUM_FEWSHOT:-5} \
