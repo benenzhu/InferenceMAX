@@ -75,6 +75,7 @@ if [[ "$RUN_MODE" == "eval" ]]; then
   # Run evaluation in-container using lm-evaluation-harness
   EVAL_RESULT_DIR=${EVAL_RESULT_DIR:-eval_out}
   OPENAI_SERVER_BASE="http://0.0.0.0:${PORT}"
+  OPENAI_COMP_BASE="$OPENAI_SERVER_BASE/v1/completions"
   OPENAI_CHAT_BASE="$OPENAI_SERVER_BASE/v1/chat/completions"
   export OPENAI_API_KEY=${OPENAI_API_KEY:-EMPTY}
 
@@ -90,14 +91,14 @@ if [[ "$RUN_MODE" == "eval" ]]; then
   rm -f /workspace/"${EVAL_RESULT_DIR}"*.json
 
   set -x
-  python3 -m lm_eval --model local-chat-completions \
+  python3 -m lm_eval --model local-completions \
     --tasks ${EVAL_TASK:-gsm8k} \
-    --apply_chat_template \
     --num_fewshot ${NUM_FEWSHOT:-5} \
     --batch_size 4 \
     --output_path "/workspace/${EVAL_RESULT_DIR}" \
-    --model_args "model=$MODEL,base_url=$OPENAI_CHAT_BASE,api_key=$OPENAI_API_KEY,eos_string=</s>,max_retries=3,num_concurrent=4,tokenized_requests=False" \
-    --gen_kwargs "max_tokens=8192,temperature=0,top_p=1"
+    --model_args "model=$MODEL,base_url=$OPENAI_COMP_BASE,api_key=$OPENAI_API_KEY,eos_string=</s>,max_retries=3,num_concurrent=4" \
+    --gen_kwargs "max_tokens=8192,temperature=0,top_p=1" \
+    --verbosity DEBUG --log_samples
   set +x
 
   # Append a Markdown table to the GitHub Actions job summary
