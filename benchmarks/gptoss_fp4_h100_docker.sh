@@ -79,10 +79,10 @@ if [[ "$RUN_MODE" == "eval" ]]; then
 
   # Ensure bench_serving is present (mirror benchmark behavior)
   git config --global --add safe.directory /workspace || true
-  if [[ ! -d bench_serving ]]; then
-    rm -rf bench_serving 2>/dev/null || true
-    git clone https://github.com/oseltamivir/bench_serving.git
-  fi
+  #if [[ ! -d bench_serving ]]; then
+  rm -rf bench_serving 2>/dev/null || true
+  git clone https://github.com/oseltamivir/bench_serving.git
+  #fi
 
   # Deps for lm-eval
   python3 -m pip install -q --upgrade pip || true
