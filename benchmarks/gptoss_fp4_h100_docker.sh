@@ -106,7 +106,8 @@ YAML
   set -x
   lighteval endpoint litellm \
     "/workspace/lighteval_litellm.yaml" \
-    "lighteval|${EVAL_TASK:-gsm8k}|${NUM_FEWSHOT:-5}|1" \
+    "gsm8k|5" \
+    --use-chat-template \
     --output-dir "/workspace/${EVAL_RESULT_DIR}" \
     --save-details
   set +x
