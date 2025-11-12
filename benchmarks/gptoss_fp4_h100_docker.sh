@@ -99,7 +99,7 @@ model_parameters:
     top_p: 1.0
     max_new_tokens: 8192
 YAML
-
+  python3 -m lighteval tasks inspect gsm8k
   # --- Run Lighteval on the requested task ---
   # Task spec format: {suite}|{task}|{num_few_shot}|{truncate_ok}
   # e.g., lighteval|gsm8k|5|1  (allow automatic reduction if too-long prompt)
@@ -107,7 +107,6 @@ YAML
   lighteval endpoint litellm \
     "/workspace/lighteval_litellm.yaml" \
     "gsm8k|5" \
-    --use-chat-template \
     --output-dir "/workspace/${EVAL_RESULT_DIR}" \
     --save-details
   set +x
