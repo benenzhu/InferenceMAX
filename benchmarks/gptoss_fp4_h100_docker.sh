@@ -84,6 +84,7 @@ if [[ "$RUN_MODE" == "eval" ]]; then
   python3 -m pip install -q --no-cache-dir "lighteval" || true
 
   echo "Using model: ${MODEL}"
+  rm -rf "/workspace/${EVAL_RESULT_DIR}"/* 2>/dev/null || true
 
   # Task spec: encode few-shot as gsm8k|k (default k=5)
   TASK_BASE="${EVAL_TASK:-gsm8k}"
@@ -94,7 +95,7 @@ if [[ "$RUN_MODE" == "eval" ]]; then
 
   set -x
   lighteval endpoint litellm \
-    "${MODEL_ARGS},generation_parameters=${GEN_ARGS}" \
+    "${MODEL_ARGS}" \
     "${TASK_SPEC}" \
     --output-dir "/workspace/${EVAL_RESULT_DIR}" \
     --max-samples "${LIMIT:-0}" \
