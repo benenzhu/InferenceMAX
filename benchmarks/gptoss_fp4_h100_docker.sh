@@ -82,14 +82,11 @@ if [[ "$RUN_MODE" == "eval" ]]; then
   python3 -m pip install -q --upgrade pip || true
   python3 -m pip install -q --no-cache-dir lighteval litellm || true
 
-  # Optional: small preflight (will fail fast if URL is wrong)
-  curl -sSf "${OPENAI_SERVER_BASE}/v1/models" >/dev/null
-
   TASK_SPEC="${EVAL_TASK:-gsm8k}|${NUM_FEWSHOT:-5}"
 
   set -x
   lighteval endpoint litellm \
-    "provider=openai,model_name=gpt-oss-120b,base_url=${OPENAI_SERVER_BASE}/v1,api_key=${OPENAI_API_KEY}" \
+    "provider=openai,model_name=gpt-oss-120b,base_url=${OPENAI_SERVER_BASE}/v1/chat/completions,api_key=${OPENAI_API_KEY}" \
     "${TASK_SPEC}" \
     --use-chat-template \
     --output-dir "/workspace/${EVAL_RESULT_DIR}"
