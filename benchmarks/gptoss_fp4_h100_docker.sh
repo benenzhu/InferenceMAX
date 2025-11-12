@@ -94,7 +94,7 @@ if [[ "$RUN_MODE" == "eval" ]]; then
   # Evaluate via LiteLLM endpoint pointing at local vLLM (OpenAI-compatible)
   # Model args map to the LiteLLM/OpenAI config fields shown in the docs.
   lighteval endpoint litellm \
-    "provider=openai,model_name=${OPENAI_MODEL_NAME:-$MODEL},base_url=${OPENAI_CHAT_BASE},api_key=${OPENAI_API_KEY},temperature=0,top_p=1,max_new_tokens=8192" \
+    "provider=openai,model_name=${OPENAI_MODEL_NAME:-$MODEL},base_url=${OPENAI_CHAT_BASE},api_key=${OPENAI_API_KEY}" \
     "$TASK_SPEC" \
     --output-dir "/workspace/${EVAL_RESULT_DIR}"
   set +x
