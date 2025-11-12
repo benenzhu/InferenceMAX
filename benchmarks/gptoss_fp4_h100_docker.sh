@@ -75,7 +75,7 @@ curl -s "http://0.0.0.0:${PORT}/v1/models"
 
 if [[ "$RUN_MODE" == "eval" ]]; then
   EVAL_RESULT_DIR=${EVAL_RESULT_DIR:-eval_out}
-  OPENAI_SERVER_BASE="http://localhost:${PORT}"
+  OPENAI_SERVER_BASE="http://127.0.0.1:${PORT}"
   export OPENAI_API_KEY=${OPENAI_API_KEY:-EMPTY}
 
   # Install LightEval + LiteLLM (unchanged)
@@ -89,7 +89,7 @@ if [[ "$RUN_MODE" == "eval" ]]; then
 
   set -x
   lighteval endpoint litellm \
-    "provider=openai,model_name=openai/gpt-oss-120b,base_url=${OPENAI_SERVER_BASE}/v1,api_key=${OPENAI_API_KEY}" \
+    "provider=openai,model_name=gpt-oss-120b,base_url=${OPENAI_SERVER_BASE}/v1,api_key=${OPENAI_API_KEY}" \
     "${TASK_SPEC}" \
     --use-chat-template \
     --output-dir "/workspace/${EVAL_RESULT_DIR}"
