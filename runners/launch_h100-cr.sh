@@ -19,6 +19,9 @@ docker run --rm --network=host \
   -v "$HF_HUB_CACHE_MOUNT:$HF_HUB_CACHE" \
   -v "$GITHUB_WORKSPACE:/workspace/" -w /workspace/ \
   $SUMMARY_MOUNT \
+  -e HF_HOME=/workspace/.cache/huggingface \
+  -e HF_HUB_CACHE=/workspace/.cache/huggingface/hub \
+  -e HF_DATASETS_CACHE=/workspace/.cache/huggingface/datasets \
   -e USER=runner -e LOGNAME=runner -e HOME=/workspace \
   -e XDG_CACHE_HOME=/workspace/.cache \
   -e TORCHINDUCTOR_CACHE_DIR=/workspace/.cache/torch/inductor \
