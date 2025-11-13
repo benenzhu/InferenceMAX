@@ -37,18 +37,18 @@ on:
     paths:
       - '.github/workflows/eval-h100-gms8k.yml'
       - '.github/workflows/eval-tmpl.yml'
-      - 'runners/launch_h100-cw.sh'
-      - 'benchmarks/gptoss_fp4_h100_slurm.sh'
+      - 'runners/launch_b200-nb.sh'
+      - 'benchmarks/gptoss_fp4_b200_trt_slurm.sh'
 
 jobs:
   eval:
     uses: ./.github/workflows/eval-tmpl.yml
     secrets: inherit
     with:
-      runner: h100-cw_1
-      image: ${{ inputs.image || 'vllm/vllm-openai:v0.11.0' }}
+      runner: b200-nb_1
+      image: ${{ inputs.image || 'nvcr.io#nvidia/tensorrt-llm/release:1.2.0rc0.post1' }}
       model: ${{ inputs.model || 'openai/gpt-oss-120b' }}
-      framework: vllm
+      framework: trt
       precision: fp4
       exp-name: gptoss_gsm8k_poc
       tp: ${{ inputs.tp || '4' }}
