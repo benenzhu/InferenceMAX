@@ -69,25 +69,28 @@ mpirun -n 1 --oversubscribe --allow-run-as-root \
     --tp_size=$TP --ep_size=$EP_SIZE \
     --extra_llm_api_options=$EXTRA_CONFIG_FILE \
     > $SERVER_LOG 2>&1 &
+    
+SERVER_PID=$!
 
-
+# Show logs until server is ready
+tail -f $SERVER_LOG &
+TAIL_PID=$!
 set +x
-while IFS= read -r line; do
-    printf '%s\n' "$line"
-    if [[ "$line" == *"Application startup complete"* ]]; then
-        break
-    fi
-done < <(tail -F -n0 "$SERVER_LOG")
+until curl --output /dev/null --silent --fail http://0.0.0.0:$PORT/health; do
+    sleep 5
+done
+kill $TAIL_PID
 
-git clone https://github.com/kimbochen/bench_serving.git
+pip install -q datasets pandas
 set -x
-python3 bench_serving/benchmark_serving.py \
---model $MODEL --backend openai \
---base-url http://0.0.0.0:$PORT \
+BENCH_SERVING_DIR=$(mktemp -d /tmp/bmk-XXXXXX)
+git clone https://github.com/kimbochen/bench_serving.git $BENCH_SERVING_DIR
+python3 $BENCH_SERVING_DIR/benchmark_serving.py \
+--model $MODEL  --backend vllm --base-url http://localhost:$PORT \
 --dataset-name random \
 --random-input-len $ISL --random-output-len $OSL --random-range-ratio $RANDOM_RANGE_RATIO \
---num-prompts $(( $CONC * 10 )) --max-concurrency $CONC \
+--num-prompts $(( $CONC * 10 )) \
+--max-concurrency $CONC \
 --request-rate inf --ignore-eos \
 --save-result --percentile-metrics 'ttft,tpot,itl,e2el' \
---result-dir /workspace/ \
---result-filename $RESULT_FILENAME.json
+--result-dir /workspace/ --result-filename $RESULT_FILENAME.json
