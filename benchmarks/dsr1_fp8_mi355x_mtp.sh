@@ -39,7 +39,8 @@ python3 -m sglang.launch_server \
     --num-continuous-decode-steps 4 \
     --max-prefill-tokens 196608 \
     --speculative-algorithm EAGLE \
-    --cuda-graph-max-bs $CONC > $SERVER_LOG 2>&1 &
+    --max-running-requests "$((CONC * 4))" \
+    --cuda-graph-max-bs "$((CONC * 4))" > $SERVER_LOG 2>&1 &
 
 SERVER_PID=$!
 
@@ -54,8 +55,7 @@ run_benchmark_serving \
     --output-len "$OSL" \
     --random-range-ratio "$RANDOM_RANGE_RATIO" \
     --num-prompts "$((CONC * 10))" \
-    --max-concurrency "$((CONC * 4))" \
-    --max-running-requests "$((CONC * 4))" \
+    --max-concurrency "$CONC" \
     --result-filename "$RESULT_FILENAME" \
     --result-dir /workspace/
 
